@@ -6,7 +6,7 @@
 # API_KEY = st.secrets["api_keys"]["gemini_api_key"]
 
 # Placeholder cho API key
-API_KEY = "AIzaSyBggDlC2m7WFFun52-6KFE5g8Ici9CofJY"
+API_KEY = "..."
 
 # Cấu hình model cho từng tác vụ
 MODELS = {

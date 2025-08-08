@@ -4,8 +4,7 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/math-mentor-ai.git
-cd math-mentor-ai
+git clone https://github.com/maver1ch/Math.git
 
 # Tạo môi trường Python
 python -m venv venv

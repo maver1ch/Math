@@ -22,11 +22,15 @@ class DialogueManager:
         self.current_step_id = 1
         self.attempts_on_current_step = 0
         self.conversation_history = []
+        self.max_attempts_before_moving_on = 3  # Số lần thử tối đa trước khi tự động chuyển bước
         
         # Khởi tạo các module
         self.hint_generator = HintGenerator()
         self.answer_evaluator = AnswerEvaluator()
         self.deadlock_explainer = DeadlockExplainer()
+        
+        # Khởi tạo LLM Interface cho các tác vụ nhỏ
+        self.llm = LLMInterface()
     
     def get_current_step(self):
         """
@@ -51,7 +55,8 @@ class DialogueManager:
         if not current_step:
             return self._generate_completion_message()
         
-        # Tạo gợi ý dựa trên số lần thử
+        # Quan trọng: Đảm bảo attempts_on_current_step là 0 cho gợi ý đầu tiên
+        # để hint_generator biết đây là gợi ý đầu tiên
         hint = self.hint_generator.generate_hint(
             current_step,
             self.attempts_on_current_step,
@@ -107,8 +112,16 @@ class DialogueManager:
         # Xử lý dựa trên kết quả đánh giá
         if evaluation["is_correct"]:
             response = self._handle_correct_answer(evaluation)
-        elif self._is_deadlocked():
-            response = self._handle_deadlock(current_step)
+        elif self._should_move_on():
+            # Kiểm tra xem có phải bước cuối cùng không
+            is_final_step = (self.current_step_id == len(self.solution["steps"]))
+            
+            if is_final_step:
+                # Ở bước cuối cùng, không tự động chuyển bước mà tiếp tục gợi ý
+                response = self._handle_deadlock(current_step, is_final_step=True)
+            else:
+                # Ở các bước khác, tự động chuyển sang bước tiếp theo sau khi giải thích
+                response = self._handle_deadlock_and_move_on(current_step)
         else:
             response = self._handle_incorrect_answer(evaluation)
         
@@ -135,13 +148,13 @@ class DialogueManager:
         
         # Chuyển sang bước tiếp theo
         self.current_step_id += 1
-        self.attempts_on_current_step = 0
+        self.attempts_on_current_step = 0  # Reset số lần thử về 0 cho bước mới
         
         # Nếu còn bước tiếp theo, tạo gợi ý mới
         if self.current_step_id <= len(self.solution["steps"]):
             next_step = self.get_current_step()
-            transition = f"Bây giờ chúng ta hãy chuyển sang {next_step['goal']}."
-            return f"{feedback} {transition}"
+            transition = self._generate_improved_transition(feedback, next_step)
+            return transition
         else:
             # Hoàn thành bài toán
             return f"{feedback} {self._generate_completion_message()}"
@@ -164,10 +177,15 @@ class DialogueManager:
         return f"{feedback} {improved_suggestion}"
     
     def _humanize_suggestion(self, suggestion):
+        """
+        Làm mềm mại gợi ý bằng LLM
         
-        llm = LLMInterface()
-
-        """Làm mềm mại gợi ý bằng LLM"""
+        Args:
+            suggestion (str): Gợi ý gốc
+            
+        Returns:
+            str: Gợi ý đã được làm mềm mại
+        """
         prompt = f"""
         Bạn là một giáo viên toán học tận tâm và yêu thương học sinh. 
         Hãy biến gợi ý khô khan này thành lời khuyên ấm áp, khích lệ:
@@ -186,39 +204,109 @@ class DialogueManager:
         try:
             # Sử dụng model nhỏ để tiết kiệm
             model_config = {"model_name": "gemini-2.0-flash", "temperature": 0.7}
-            improved = llm.generate_content(prompt, model_config, with_system_prompt=False)
+            improved = self.llm.generate_content(prompt, model_config, with_system_prompt=False)
             return improved.strip()
         except:
             # Fallback nếu có lỗi
             return suggestion
     
-    def _is_deadlocked(self):
+    def _generate_improved_transition(self, feedback, next_step):
         """
-        Kiểm tra xem học sinh có bị bế tắc không
+        Tạo đoạn chuyển tiếp mượt mà khi chuyển sang bước tiếp theo
+        
+        Args:
+            feedback (str): Phản hồi cho câu trả lời đúng
+            next_step (dict): Thông tin về bước tiếp theo
+            
+        Returns:
+            str: Đoạn chuyển tiếp mượt mà
+        """
+        goal = next_step.get("goal", "bước tiếp theo")
+        
+        prompt = f"""
+        Bạn là một gia sư toán học nhiệt tình và khéo léo.
+        Hãy tạo một đoạn chuyển tiếp tự nhiên và mượt mà từ:
+        
+        Phản hồi tích cực: "{feedback}"
+        
+        Đến bước tiếp theo: "{goal}"
+        
+        Quy tắc:
+        - Tạo cảm giác liên tục và tự nhiên giữa hai bước
+        - Khen ngợi đúng mực về bước vừa hoàn thành
+        - Tạo sự tò mò và hứng thú cho bước tiếp theo
+        - Giọng điệu thân thiện, tích cực
+        - Ngắn gọn (2-3 câu)
+        - Có thể thêm 1 emoji phù hợp
+        
+        Chỉ trả về đoạn chuyển tiếp, không thêm giải thích.
+        """
+        
+        try:
+            # Sử dụng model nhỏ để tiết kiệm
+            model_config = {"model_name": "gemini-2.0-flash", "temperature": 0.7}
+            transition = self.llm.generate_content(prompt, model_config, with_system_prompt=False)
+            return transition.strip()
+        except:
+            # Fallback nếu có lỗi
+            return f"{feedback} Bây giờ chúng ta hãy chuyển sang {goal}."
+    
+    def _should_move_on(self):
+        """
+        Kiểm tra xem có nên tự động chuyển sang bước tiếp theo không
         
         Returns:
-            bool: True nếu học sinh bị bế tắc
+            bool: True nếu nên chuyển bước
         """
-        # Bế tắc nếu thử nhiều lần hoặc nói "không biết"
-        return (self.attempts_on_current_step >= 3 or 
-                any(["không biết" in msg["content"].lower() 
-                     for msg in self.conversation_history[-3:] 
-                     if msg["role"] == "user"]))
+        # Tự động chuyển bước nếu số lần thử vượt quá ngưỡng
+        return self.attempts_on_current_step >= self.max_attempts_before_moving_on
     
-    def _handle_deadlock(self, current_step):
+    def _handle_deadlock(self, current_step, is_final_step=False):
         """
-        Xử lý khi học sinh bị bế tắc
+        Xử lý khi học sinh bế tắc
         
         Args:
             current_step (dict): Thông tin bước hiện tại
+            is_final_step (bool): Có phải bước cuối cùng không
             
         Returns:
             str: Giải thích chi tiết
         """
         return self.deadlock_explainer.explain(
             current_step,
-            self.conversation_history
+            self.conversation_history,
+            is_final_step
         )
+    
+    def _handle_deadlock_and_move_on(self, current_step):
+        """
+        Xử lý khi học sinh bế tắc và tự động chuyển sang bước tiếp theo
+        
+        Args:
+            current_step (dict): Thông tin bước hiện tại
+            
+        Returns:
+            str: Giải thích chi tiết và chuyển bước
+        """
+        # Lấy giải thích cho bước hiện tại
+        explanation = self.deadlock_explainer.explain(
+            current_step,
+            self.conversation_history,
+            auto_advance=True
+        )
+        
+        # Chuyển sang bước tiếp theo
+        self.current_step_id += 1
+        self.attempts_on_current_step = 0  # Reset số lần thử về 0 cho bước mới
+        
+        # Nếu còn bước tiếp theo, thêm phần chuyển tiếp
+        if self.current_step_id <= len(self.solution["steps"]):
+            next_step = self.get_current_step()
+            transition = f"\n\nBây giờ chúng ta sẽ chuyển sang {next_step['goal']}. Hãy cùng tiếp tục nhé!"
+            return f"{explanation}{transition}"
+        else:
+            # Hoàn thành bài toán
+            return f"{explanation}\n\n{self._generate_completion_message()}"
     
     def _generate_completion_message(self):
         """

@@ -24,7 +24,8 @@ def classify_intent(text):
     
     Chỉ trả lời "math" nếu đây là câu hỏi hoặc yêu cầu liên quan đến Toán học,
     hoặc "non" nếu không liên quan đến Toán học.
-    Không trả lời bất kỳ nội dung nào khác. NO EXPLANATION
+    LƯU Ý QUAN TRỌNG: Bài toán có thể là một tình huống thực tế (in real life). Bạn cần phải đọc thật kĩ trước và xem xét trước khi đưa ra quyết định. 
+    Không trả lời bất kỳ nội dung nào khác. NO EXPLANATION. 
     Output format: math / non (chọn một trong hai)
     """
     

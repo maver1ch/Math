@@ -1,6 +1,3 @@
-"""
-Lớp cơ sở cho các solver
-"""
 from abc import ABC, abstractmethod
 
 class BaseSolver(ABC):

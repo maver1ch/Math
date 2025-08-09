@@ -12,64 +12,55 @@ API_KEY = "..."
 MODELS = {
     # Tầng 1: Xử lý đầu vào
     "intent_classification": {
-        "model_name": "gemini-2.0-flash",
+        "model_name": "gemini-1.5-flash",
         "temperature": 0.1,
         "top_p": 0.98,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     },
     "ocr": {
-        "model_name": "gemini-2.5-flash",
+        "model_name": "gemini-2.0-flash",
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     },
     
     # Tầng 2: Giải toán
     "problem_classification": {
-        "model_name": "gemini-1.5-flash",
+        "model_name": "gemini-2.0-flash",
         "temperature": 0.1,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_p": 0.99,
+        "top_k": 10
     },
     "easy_solver": {
         "model_name": "gemini-2.0-flash",
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     },
     "medium_solver": {
         "model_name": "gemini-2.5-flash-preview-05-20",
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     },
     "hard_solver": {
         "model_name": "gemini-2.5-pro",
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 12000
+        "top_k": 40
     },
     
-    # Tầng 3: Quản lý hội thoại
     "hint_generator": {
         "model_name": "gemini-2.5-flash",
-        "temperature": 0.7,
+        "temperature": 0.5,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     },
     "answer_evaluator": {
-        "model_name": "gemini-2.0-flash",
+        "model_name": "gemini-2.5-flash",
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     }
 }
 
@@ -156,33 +147,21 @@ Bạn: "Đúng rồi! Chuyển vế là một phương pháp tốt. Cụ thể, 
 ...
 """
 
-# Cấu hình độ khó (đơn giản hóa cho MVP)
 DIFFICULTY_LEVELS = {
-    "easy": (1, 3),     # Dễ: 1-3
-    "medium": (4, 7),   # Trung bình: 4-7
-    "hard": (8, 10)     # Khó: 8-10
+    "easy": (1, 6),     
+    "medium": (7, 8),   
+    "hard": (9, 10)    
 }
 
 def get_gemini_config(model_name):
-    """
-    Lấy cấu hình cho model Gemini cụ thể.
-    
-    Args:
-        model_name (str): Tên của model cần lấy cấu hình
-        
-    Returns:
-        dict: Cấu hình cho model
-    """
-    # Tìm model trong danh sách cấu hình
+
     for config in MODELS.values():
         if config["model_name"] == model_name:
             return config
     
-    # Nếu không tìm thấy, trả về cấu hình mặc định
     return {
         "model_name": model_name,
         "temperature": 0.1,
         "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 10000
+        "top_k": 40
     }

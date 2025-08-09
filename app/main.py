@@ -1,10 +1,8 @@
 import os
 import sys
-# Thêm thư mục gốc vào Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
-import json
 from app.components.chat_interface import render_chat_interface
 from app.components.knowledge_gaps import render_knowledge_gaps
 from app.utils.session_manager import init_session_state, reset_session
@@ -98,6 +96,9 @@ def main():
                         extracted_text = process_image(uploaded_file)
                         st.session_state.ocr_result = extracted_text
                         
+                        # Đánh dấu đã xử lý hình ảnh
+                        st.session_state.image_processed = True
+                        
                         # Hiển thị kết quả OCR
                         with st.chat_message("assistant"):
                             st.markdown(f"**Đề bài từ ảnh:**\n\n{extracted_text}")
@@ -107,6 +108,7 @@ def main():
                             "role": "assistant",
                             "content": f"**Đề bài từ ảnh:**\n\n{extracted_text}"
                         })
+                        
                     except Exception as e:
                         error_message = f"Xin lỗi, đã xảy ra lỗi khi xử lý ảnh: {str(e)}"
                         st.error(error_message)

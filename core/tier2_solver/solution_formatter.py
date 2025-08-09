@@ -1,6 +1,3 @@
-"""
-Module định dạng lời giải thành JSON có cấu trúc
-"""
 import json
 import uuid
 from llm.llm_interface import LLMInterface

@@ -20,22 +20,11 @@ class AnswerEvaluator:
         self.model_config = MODELS["answer_evaluator"]
     
     def evaluate(self, student_answer, step):
-        """
-        Đánh giá câu trả lời của học sinh
-        
-        Args:
-            student_answer (str): Câu trả lời của học sinh
-            step (dict): Thông tin về bước hiện tại
-            
-        Returns:
-            dict: Kết quả đánh giá
-        """
         # Lấy thông tin từ bước hiện tại
         goal = step.get("goal", "")
         calculation = step.get("calculation", "")
         expected_result = step.get("expected_result", "")
-        
-        # Chuẩn bị prompt
+
         prompt = ANSWER_EVALUATION_PROMPT.format(
             goal=goal,
             calculation=calculation,
@@ -44,7 +33,7 @@ class AnswerEvaluator:
         )
         
         # Gọi API để đánh giá câu trả lời
-        response = self.llm.generate_content(prompt, self.model_config, with_system_prompt=False)
+        response = self.llm.generate_content(prompt, self.model_config, with_system_prompt=True)
         
         # Xử lý kết quả
         try:

@@ -1,9 +1,6 @@
 import streamlit as st
 
 def render_image_uploader():
-    """
-    Hiển thị giao diện tải lên ảnh và trả về file ảnh đã tải lên (nếu có)
-    """
     uploaded_file = st.file_uploader(
         "Tải lên ảnh chứa đề bài toán",
         type=["png", "jpg", "jpeg"],

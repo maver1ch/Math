@@ -1,28 +1,17 @@
-"""
-Module kết nối với API của Gemini
-"""
-import os
-import base64
 import google.generativeai as genai
 from config.llm_config import API_KEY, SYSTEM_PROMPT
 from PIL import Image
 import io
+import time
+from app.utils.llm_logger import LLMLogger
 
 class LLMInterface:
-    """
-    Lớp giao tiếp với Large Language Models (Gemini)
-    """
     def __init__(self):
-        """
-        Khởi tạo giao tiếp với API Gemini
-        """
-        # Cấu hình API key
         genai.configure(api_key=API_KEY)
+        self.logger = LLMLogger()
     
     def generate_content(self, prompt, model_config, with_system_prompt=True):
-        """
-        Gọi API Gemini để sinh nội dung
-        
+        """        
         Args:
             prompt (str): Prompt đầu vào
             model_config (dict): Cấu hình model
@@ -31,34 +20,12 @@ class LLMInterface:
         Returns:
             str: Nội dung được sinh bởi model
         """
-        try:
-            # Lấy thông tin cấu hình
-            safety_settings = [
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_ONLY_HIGH"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_ONLY_HIGH" 
-            },
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_ONLY_HIGH"
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_ONLY_HIGH"
-            }
-            ]
-                        
+        try:                       
             model_name = model_config.get("model_name", "gemini-1.5-flash")
             temperature = model_config.get("temperature", 0.1)
             top_p = model_config.get("top_p", 0.95)
-            top_k = model_config.get("top_k", 40)
-            max_output_tokens = model_config.get("max_output_tokens", 1024)
-            
-            # Khởi tạo model
+            top_k = model_config.get("top_k", 20)
+
             generation_config = {
                 "temperature": temperature,
                 "top_p": top_p,
@@ -67,11 +34,18 @@ class LLMInterface:
             
             model = genai.GenerativeModel(
                 model_name=model_name,
-                generation_config=generation_config,
-                safety_settings=safety_settings 
+                generation_config=generation_config
             )
+
+            # Ghi log bắt đầu xử lý
+            self.logger.log_step("start_generate_content", {
+                "model": model_name,
+                "with_system_prompt": with_system_prompt
+            })
             
-            # Thêm system prompt nếu cần
+            # Đo thời gian xử lý
+            start_time = time.time()
+
             if with_system_prompt:
                 response = model.generate_content(
                     [
@@ -83,10 +57,31 @@ class LLMInterface:
             else:
                 response = model.generate_content(prompt)
             
+            # Tính thời gian xử lý
+            execution_time = time.time() - start_time
+            
+            # Ghi log kết quả
+            self.logger.log_llm_interaction(
+                prompt=prompt,
+                response=response.text,
+                model_name=model_name,
+                execution_time=execution_time,
+                metadata={
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                    "with_system_prompt": with_system_prompt
+                }
+            )
+            
             return response.text
             
         except Exception as e:
-            print(f"Lỗi khi gọi API Gemini: {str(e)}")
+            error_message = f"Lỗi khi gọi API Gemini: {str(e)}"
+            self.logger.log_error(error_message, {
+                "model": model_config.get("model_name", "gemini-1.5-flash"),
+                "prompt": prompt[:500] + "..." if len(prompt) > 500 else prompt
+            })
             return f"Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn: {str(e)}"
     
     def process_image(self, image_file, prompt=None, model_config=None):
@@ -112,7 +107,6 @@ class LLMInterface:
             temperature = model_config.get("temperature", 0.1)
             top_p = model_config.get("top_p", 0.95)
             top_k = model_config.get("top_k", 40)
-            max_output_tokens = model_config.get("max_output_tokens", 1024)
             
             # Khởi tạo model
             generation_config = {
@@ -138,12 +132,42 @@ class LLMInterface:
                 Giữ nguyên định dạng toán học và ký hiệu.
                 """
             
+            # Ghi log bắt đầu xử lý ảnh
+            self.logger.log_step("start_process_image", {
+                "model": model_name,
+                "prompt_length": len(prompt) if prompt else 0
+            })
+            
+            # Đo thời gian xử lý
+            start_time = time.time()
+            
             # Gọi API để xử lý ảnh
             response = model.generate_content([prompt, image])
+            
+            # Tính thời gian xử lý
+            execution_time = time.time() - start_time
+            
+            # Ghi log kết quả
+            self.logger.log_llm_interaction(
+                prompt=prompt,
+                response=response.text,
+                model_name=model_name,
+                execution_time=execution_time,
+                metadata={
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "top_k": top_k,
+                    "image_processing": True
+                }
+            )
             
             # Lấy nội dung từ response
             return response.text
             
         except Exception as e:
-            print(f"Lỗi khi xử lý ảnh: {str(e)}")
+            error_message = f"Lỗi khi xử lý ảnh: {str(e)}"
+            self.logger.log_error(error_message, {
+                "model": model_config.get("model_name") if model_config else "unknown",
+                "prompt": prompt[:500] + "..." if prompt and len(prompt) > 500 else prompt
+            })
             return f"Xin lỗi, đã xảy ra lỗi khi xử lý ảnh của bạn: {str(e)}"

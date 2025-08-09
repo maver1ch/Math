@@ -4,12 +4,6 @@ Component hiển thị phân tích lỗ hổng kiến thức
 import streamlit as st
 
 def render_knowledge_gaps(knowledge_analysis):
-    """
-    Hiển thị phân tích lỗ hổng kiến thức
-    
-    Args:
-        knowledge_analysis (dict): Kết quả phân tích lỗ hổng kiến thức
-    """
     st.subheader("📊 Phân tích lỗ hổng kiến thức")
     
     # Hiển thị đánh giá tổng quát
